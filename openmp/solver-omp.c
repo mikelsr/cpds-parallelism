@@ -6,6 +6,17 @@
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
+// macro with the calculation of a cell in the Gauss function,
+// where it will be called multiple times
+#define GAUSS_CELL_OPERATION \
+unew = 0.25 * (u[i * sizey + (j - 1)] + /* left */\
+	u[i * sizey + (j + 1)] + /* right */\
+	u[(i - 1) * sizey + j] + /* top */\
+	u[(i + 1) * sizey + j]); /* bottom */\
+diff = unew - u[i * sizey + j];\
+sum += diff * diff;\
+u[i * sizey + j]=unew;\
+
 /*
  * Blocked Jacobi solver: one iteration step
  * Instead of calculating the whole matrix at once, it is divided in blocks and
@@ -143,58 +154,28 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey)
 		for (int jj = 0; jj < nby; jj++) {
 			if (ii == 0 && jj == 0) {
 				#pragma omp task private(unew, diff) depend(out: deps[ii*nbx + jj])
-				{
-					for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++) {
-						for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
-							unew = 0.25 * (u[i * sizey + (j - 1)] + // left
-								u[i * sizey + (j + 1)] + // right
-								u[(i - 1) * sizey + j] + // top
-								u[(i + 1) * sizey + j]); // bottom
-							diff = unew - u[i * sizey + j];
-							sum += diff * diff;
-							u[i * sizey + j]=unew;
-						}
+				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++) {
+					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
+						GAUSS_CELL_OPERATION
 					}
 				}
 			} else if (ii == 0) {
 				#pragma omp task private(unew, diff) depend(in: deps[ii*nbx + (jj-1)]) depend(out: deps[ii*nbx + jj])
-				{
-					for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
-						for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
-							unew = 0.25 * (u[i * sizey + (j - 1)] + // left
-								u[i * sizey + (j + 1)] + // right
-								u[(i - 1) * sizey + j] + // top
-								u[(i + 1) * sizey + j]); // bottom
-							diff = unew - u[i * sizey + j];
-							sum += diff * diff;
-							u[i * sizey + j]=unew;
-						}
-				}
+				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
+					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
+						GAUSS_CELL_OPERATION
+					}
 			} else if (jj == 0) {
 				#pragma omp task private(unew, diff) depend(in: deps[(ii-1)*nbx + jj]) depend(out: deps[ii*nbx + jj])
-				{
-					for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
-						for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
-							unew = 0.25 * (u[i * sizey + (j - 1)] + // left
-								u[i * sizey + (j + 1)] + // right
-								u[(i - 1) * sizey + j] + // top
-								u[(i + 1) * sizey + j]); // bottom
-							diff = unew - u[i * sizey + j];
-							sum += diff * diff;
-							u[i * sizey + j]=unew;
-						}
-				}
+				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
+					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
+						GAUSS_CELL_OPERATION
+					}
 			} else {
 				#pragma omp task private(unew, diff) depend(in: deps[(ii-1)*nbx + jj], deps[ii*nbx + (jj-1)]) depend(out: deps[ii*nbx + jj])
 				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
 					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
-						unew = 0.25 * (u[i * sizey + (j - 1)] + // left
-							u[i * sizey + (j + 1)] + // right
-							u[(i - 1) * sizey + j] + // top
-							u[(i + 1) * sizey + j]); // bottom
-						diff = unew - u[i * sizey + j];
-						sum += diff * diff;
-						u[i * sizey + j]=unew;
+						GAUSS_CELL_OPERATION
 					}
 			}
 		}
