@@ -9,7 +9,7 @@ ALL	= heatmpi
 all: $(ALL)
 
 misc.o: misc.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(MPICC) -c $(CFLAGS) $< -o $@
 
 heatmpi: heat-mpi.c solver-mpi.c misc.o
 	$(MPICC) $(CFLAGS) -o $@ $+ -lm

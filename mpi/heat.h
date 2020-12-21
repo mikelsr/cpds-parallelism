@@ -3,7 +3,7 @@
  *
  * Global definitions for the iterative solver
  */
-
+#include <mpi.h>
 #include <stdio.h>
 
 // configuration
