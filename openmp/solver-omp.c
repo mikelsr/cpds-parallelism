@@ -32,16 +32,16 @@ double relax_jacobi(double *u, double *utmp, unsigned sizex, unsigned sizey)
 	nby = NB;
 	by = sizey / nby;
 	/*
- * privatize scalar values
- *
+ 	 * privatize scalar values
+ 	 *
     */
 	// choose block, index X
-// things are shared by default but we must explicitly write them for this exercise
-// use collapse, or the number of threads...
-// loops are balanced (all have more or less the same load) -> static
-/*
- * This function is called many times, the static scheduler preserves locality but the dynamic one doesn't. Create parallel regions from heat-omp.c file.
- * */
+	// things are shared by default but we must explicitly write them for this exercise
+	// use collapse, or the number of threads...
+	// loops are balanced (all have more or less the same load) -> static
+	/*
+	* This function is called many times, the static scheduler preserves locality but the dynamic one doesn't. Create parallel regions from heat-omp.c file.
+	* */
 // try also to, instead of using reduction, use a performance killer (atomic construct)
 #pragma omp parallel for shared(nbx, bx, nby, by, u, utmp, sizex, sizey) private(diff) reduction(+: sum)
 	for (int ii = 0; ii < nbx; ii++)
@@ -91,7 +91,6 @@ double relax_redblack(double *u, unsigned sizex, unsigned sizey)
 	// define ONE parallel region that englobes TWO parallel fors
 #pragma omp parallel shared(nbx, bx, nby, by, lsw, u, unew, sizex, sizey) private(diff) reduction(+: sum)
 	{
-//https://stackoverflow.com/a/7550314
 // Computing "Red" blocks
 #pragma omp for nowait
 		for (int ii = 0; ii < nbx; ii++) {
@@ -105,8 +104,6 @@ double relax_redblack(double *u, unsigned sizex, unsigned sizey)
 									   u[(i + 1) * sizey + j]); // bottom
 						diff = unew - u[i * sizey + j];
 						sum += diff * diff;
-// TODO: measure critical performance
-#pragma omp critical
 						u[i * sizey + j] = unew;
 					}
 		}
@@ -152,27 +149,34 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey)
 	
 	for (int ii = 0; ii < nbx; ii++) 
 		for (int jj = 0; jj < nby; jj++) {
+			// top left
 			if (ii == 0 && jj == 0) {
-				#pragma omp task private(unew, diff) depend(out: deps[ii*nbx + jj])
+				#pragma omp task private(unew, diff) depend(out: deps[0])
 				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++) {
 					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
 						GAUSS_CELL_OPERATION
 					}
 				}
+			// top
 			} else if (ii == 0) {
-				#pragma omp task private(unew, diff) depend(in: deps[ii*nbx + (jj-1)]) depend(out: deps[ii*nbx + jj])
+				//										block to the left		 current block
+				#pragma omp task private(unew, diff) depend(in: deps[(jj-1)]) depend(out: deps[jj])
 				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
 					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
 						GAUSS_CELL_OPERATION
 					}
+			// left
 			} else if (jj == 0) {
-				#pragma omp task private(unew, diff) depend(in: deps[(ii-1)*nbx + jj]) depend(out: deps[ii*nbx + jj])
+				//										block above						current block
+				#pragma omp task private(unew, diff) depend(in: deps[(ii-1) * nbx]) depend(out: deps[ii * nbx])
 				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
 					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
 						GAUSS_CELL_OPERATION
 					}
+			// others
 			} else {
-				#pragma omp task private(unew, diff) depend(in: deps[(ii-1)*nbx + jj], deps[ii*nbx + (jj-1)]) depend(out: deps[ii*nbx + jj])
+				//												block above					block to the left			current block
+				#pragma omp task private(unew, diff) depend(in: deps[(ii-1) * nbx + jj], deps[ii * nbx + (jj-1)]) depend(out: deps[ii * nbx + jj])
 				for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
 					for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
 						GAUSS_CELL_OPERATION
