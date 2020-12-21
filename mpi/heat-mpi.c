@@ -31,6 +31,7 @@ int main(int argc, char* argv[])
     char* resfilename;
     int nproc, rank;
     MPI_Status status;
+    MPI_Request request;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
@@ -166,7 +167,7 @@ int main(int argc, char* argv[])
                         param.u[i * np + j] = param.uhelp[i * np + j];
                 if (nproc > 1) {
                     // send boundary to proc that runs the rows bellow (will have rank 1)
-                    MPI_Send(&param.u[proc_rows * np], np, MPI_DOUBLE, 1, iter, useful_comm);
+                    MPI_Isend(&param.u[proc_rows * np], np, MPI_DOUBLE, 1, iter, useful_comm, &request);
                     // receive upper boundary of process bellow
                     MPI_Recv(&param.u[(proc_rows + 1) * np], np, MPI_DOUBLE, 1, iter, useful_comm, &status);
                 }
@@ -278,12 +279,12 @@ int main(int argc, char* argv[])
                 MPI_Recv(&u[0], np, MPI_DOUBLE, rank - 1, iter, useful_comm, &status);
                 // Send border values to the process below (last process does not do this)
                 if (rank < nproc - 1) {
-                    MPI_Send(&u[proc_rows * np], np, MPI_DOUBLE, rank + 1, iter, useful_comm);
+                    MPI_Isend(&u[proc_rows * np], np, MPI_DOUBLE, rank + 1, iter, useful_comm, &request);
                     // Receive values from bellow
                     MPI_Recv(&u[(proc_rows + 1) * np], np, MPI_DOUBLE, rank + 1, iter, useful_comm, &status);
                 }
                 // Send border values to the process above
-                MPI_Send(&u[np], np, MPI_DOUBLE, rank - 1, iter, useful_comm);
+                MPI_Isend(&u[np], np, MPI_DOUBLE, rank - 1, iter, useful_comm, &request);
                 break;
             case 1: // RED-BLACK
                 residual = relax_redblack(u, np, np);
