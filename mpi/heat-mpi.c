@@ -145,16 +145,26 @@ int main(int argc, char* argv[])
         runtime = wtime();
 
         // send to workers the necessary data to perform computation
-        // TODO: Replace invariable messages with broadcast?
         for (int i = 0; i < nproc; i++) {
             if (i > 0) {
-                MPI_Send(&param.maxiter, 1, MPI_INT, i, TAG_ITER, useful_comm);
-                MPI_Send(&param.resolution, 1, MPI_INT, i, TAG_COLUMNS, useful_comm);
-                MPI_Send(&param.algorithm, 1, MPI_INT, i, TAG_ALGO, useful_comm);
-                MPI_Send(&param.u[i * num_x * np], (num_t) * (np), MPI_DOUBLE, i, TAG_U, useful_comm);
-                MPI_Send(&param.uhelp[i * num_x * np], (num_t) * (np), MPI_DOUBLE, i, TAG_UHELP, useful_comm);
+                MPI_Isend(&param.maxiter, 1, MPI_INT, i, TAG_ITER, useful_comm, &request);
+                MPI_Isend(&param.resolution, 1, MPI_INT, i, TAG_COLUMNS, useful_comm, &request);
+                MPI_Isend(&param.algorithm, 1, MPI_INT, i, TAG_ALGO, useful_comm, &request);
+                MPI_Isend(&param.u[i * num_x * np], num_t * np, MPI_DOUBLE, i, TAG_U, useful_comm, &request);
+                MPI_Isend(&param.uhelp[i * num_x * np], num_t * np, MPI_DOUBLE, i, TAG_UHELP, useful_comm, &request);
             }
         }
+        /*int counts[nproc - 1];
+        int displs[nproc - 1];
+        int recv[nproc - 1];
+        for (int i = 0; i < nproc; i++) {
+            counts[i] = num_t * np;
+            displs[i] = (i + 1) * num_t * np;
+        }
+        MPI_Scatterv(param.uhelp, counts, displs, MPI_DOUBLE, &recv, 0, MPI_INT, MPI_MASTER, useful_comm);
+        free(displs);
+        free(recv);
+        */
 
         iter = 0;
         while (1) {
