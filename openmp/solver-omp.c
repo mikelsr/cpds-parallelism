@@ -92,7 +92,8 @@ double relax_redblack(double *u, unsigned sizex, unsigned sizey)
 #pragma omp parallel shared(nbx, bx, nby, by, lsw, u, unew, sizex, sizey) private(diff) reduction(+: sum)
 	{
 // Computing "Red" blocks
-#pragma omp for nowait
+//#pragma omp for nowait
+#pragma omp for
 		for (int ii = 0; ii < nbx; ii++) {
 			lsw = ii % 2;
 			for (int jj = lsw; jj < nby; jj = jj + 2)
