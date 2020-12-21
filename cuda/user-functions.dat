@@ -1,4 +1,5 @@
 cpu_jacobi
+cpu_jacobi_aux
 cpu_residual
 initialize
 finalize
