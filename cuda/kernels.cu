@@ -2,6 +2,8 @@
 #include <float.h>
 #include <cuda.h>
 
+#define WARP_SIZE 32
+
 __global__ void gpu_Heat (float *h, float *g, int N) {
 
 	// TODO: kernel computation
@@ -22,25 +24,35 @@ __global__ void gpu_ResidualMatrix (float *h, float *g, float *diff_matrix, int 
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	if(i > 0 && i < N - 1 && j > 0 && j < N - 1) {
 		// just add the dev_diff_matrix parameter to gpu_Heat
-		diff_matrix[i * N + j] =	(g[i * N + j] - h[i * N + j]) *
+		diff_matrix[i * N + j] =	(g[i * N + j] - h[i * N + j]) * 
 									(g[i * N + j] - h[i * N + j]);
 	}
+}
+
+__device__ void warpReduce(volatile float* sdata, int tid) {
+	sdata[tid] += sdata[tid + 32];
+	sdata[tid] += sdata[tid + 16];
+	sdata[tid] += sdata[tid +  8];
+	sdata[tid] += sdata[tid +  4];
+	sdata[tid] += sdata[tid +  2];
+	sdata[tid] += sdata[tid +  1];
 }
 
 __global__ void gpu_Residual (float *diff_matrix, float *residual) {
 	extern __shared__ float sdata[];
 	unsigned int tid = threadIdx.x;
-	unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int i = blockIdx.x * blockDim.x * 2 + threadIdx.x;
 
-	sdata[tid] = diff_matrix[i];
+	sdata[tid] = diff_matrix[i] + diff_matrix[i + blockDim.x];
 	__syncthreads();
-	for(unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+	for(unsigned int s = blockDim.x / 4; s > WARP_SIZE; s >>= 1) {
 		if (tid < s) {
 			sdata[tid] += sdata[tid + s];
 		}
 		__syncthreads();
 	}
-	if (tid == 0) {
-		residual[blockIdx.x] = sdata[tid];
-	}
+
+	if (tid < WARP_SIZE) warpReduce(sdata, tid);
+	if (tid == 0) residual[blockIdx.x] = sdata[tid];
 }
+

@@ -38,6 +38,7 @@ int coarsen(float *uold, unsigned oldx, unsigned oldy ,
 
 __global__ void gpu_Heat (float *h, float *g, int N);
 __global__ void gpu_ResidualMatrix (float *h, float *g, float *diff_matrix, int N);
+__device__ void warpReduce(volatile int* sdata, int tid);
 __global__ void gpu_Residual (float *diff_matrix, float *residual);
 
 #define NB 8
@@ -233,12 +234,11 @@ int main( int argc, char *argv[] ) {
     cudaEventRecord( start, 0 );
     cudaEventSynchronize( start );
 
-    float *dev_u, *dev_uhelp, *dev_diff_matrix, *dev_residual;
-    float *diff_matrix, *residual_total;
-    residual_total = (float *) calloc(sizeof(float), np);
-    diff_matrix = (float *) calloc(sizeof(float), np * np);
-    cudaMalloc(&dev_residual, np * sizeof(float));
+    float *dev_u, *dev_uhelp, *dev_diff_matrix, *dev_residual_partial, *dev_residual;
+
+    cudaMalloc(&dev_residual_partial, np * sizeof(float));
     cudaMalloc(&dev_diff_matrix, np * np *sizeof(float));
+    cudaMalloc(&dev_residual, sizeof(float));
 
 
     // TODO: Allocation on GPU for matrices u and uhelp
@@ -262,12 +262,15 @@ int main( int argc, char *argv[] ) {
         
         gpu_ResidualMatrix<<<Grid, Block>>>(dev_u, dev_uhelp, dev_diff_matrix, np);
         cudaThreadSynchronize();
-        cudaMemcpy(diff_matrix, dev_diff_matrix, np * np * sizeof(float), cudaMemcpyDeviceToHost);
+        //cudaMemcpy(diff_matrix, dev_diff_matrix, np * np * sizeof(float), cudaMemcpyDeviceToHost);
 
-        gpu_Residual<<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual);
+        gpu_Residual<<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
         cudaThreadSynchronize();
-        cudaMemcpy(residual_total, dev_residual, np * sizeof(float), cudaMemcpyDeviceToHost);
+        //cudaMemcpy(residual_partial, dev_residual_partial, np * sizeof(float), cudaMemcpyDeviceToHost);
 
+        gpu_Residual<<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+        cudaThreadSynchronize();
+        cudaMemcpy(&residual, dev_residual, sizeof(float), cudaMemcpyDeviceToHost);
         //residual = cpu_residual(param.u, param.uhelp, np, np);
 
         float * tmp = dev_u;
@@ -276,12 +279,13 @@ int main( int argc, char *argv[] ) {
 
         iter++;
 
+        /*
         float sum = 0.0;
         for(int i = 0; i < np; i++) {
-            sum += residual_total[i];
+            sum += residual_partial[i];
         }
         residual = sum; 
-
+        */
         // residual = cpu_jacobi_aux(diff_matrix, np, np);
 
         // solution good enough ?
