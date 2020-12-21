@@ -2,7 +2,7 @@
 #include <float.h>
 #include <cuda.h>
 
-#define WARP_SIZE 32
+#include "kernels.cuh"
 
 __global__ void gpu_Heat (float *h, float *g, int N) {
 
@@ -29,15 +29,7 @@ __global__ void gpu_ResidualMatrix (float *h, float *g, float *diff_matrix, int 
 	}
 }
 
-__device__ void warpReduce(volatile float* sdata, int tid) {
-	sdata[tid] += sdata[tid + 32];
-	sdata[tid] += sdata[tid + 16];
-	sdata[tid] += sdata[tid +  8];
-	sdata[tid] += sdata[tid +  4];
-	sdata[tid] += sdata[tid +  2];
-	sdata[tid] += sdata[tid +  1];
-}
-
+/*
 __global__ void gpu_Residual (float *diff_matrix, float *residual) {
 	extern __shared__ float sdata[];
 	unsigned int tid = threadIdx.x;
@@ -55,4 +47,4 @@ __global__ void gpu_Residual (float *diff_matrix, float *residual) {
 	if (tid < WARP_SIZE) warpReduce(sdata, tid);
 	if (tid == 0) residual[blockIdx.x] = sdata[tid];
 }
-
+*/

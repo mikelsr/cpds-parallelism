@@ -4,6 +4,8 @@
 #include <float.h>
 #include <cuda.h>
 
+#include "kernels.cuh"
+
 typedef struct {
     float posx;
     float posy;
@@ -35,11 +37,6 @@ void write_image( FILE * f, float *u,
 int coarsen(float *uold, unsigned oldx, unsigned oldy ,
 	    float *unew, unsigned newx, unsigned newy );
 
-
-__global__ void gpu_Heat (float *h, float *g, int N);
-__global__ void gpu_ResidualMatrix (float *h, float *g, float *diff_matrix, int N);
-__device__ void warpReduce(volatile int* sdata, int tid);
-__global__ void gpu_Residual (float *diff_matrix, float *residual);
 
 #define NB 8
 #define min(a,b) ( ((a) < (b)) ? (a) : (b) )
@@ -264,11 +261,74 @@ int main( int argc, char *argv[] ) {
         cudaThreadSynchronize();
         //cudaMemcpy(diff_matrix, dev_diff_matrix, np * np * sizeof(float), cudaMemcpyDeviceToHost);
 
-        gpu_Residual<<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+        switch (Block_Dim) {
+        case 512:
+            gpu_Residual<512><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            //cudaMemcpy(residual_partial, dev_residual_partial, np * sizeof(float), cudaMemcpyDeviceToHost);
+            gpu_Residual<512><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 256:
+            gpu_Residual<256><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<256><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 128:
+            gpu_Residual<128><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<128><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 64:
+            gpu_Residual<64><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<64><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 32:
+            gpu_Residual<32><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<32><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 16:
+            gpu_Residual<16><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<16><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 8:
+            gpu_Residual<8><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<8><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 4:
+            gpu_Residual<4><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<4><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 2:
+            gpu_Residual<2><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<2><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        case 1:
+            gpu_Residual<1><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
+            cudaThreadSynchronize();
+            gpu_Residual<1><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+            cudaThreadSynchronize();
+            break;
+        }
+        gpu_Residual<256><<<np, np, np * sizeof(float)>>>(dev_diff_matrix, dev_residual_partial);
         cudaThreadSynchronize();
         //cudaMemcpy(residual_partial, dev_residual_partial, np * sizeof(float), cudaMemcpyDeviceToHost);
 
-        gpu_Residual<<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
+        gpu_Residual<256><<<1, np, np * sizeof(float)>>>(dev_residual_partial, dev_residual);
         cudaThreadSynchronize();
         cudaMemcpy(&residual, dev_residual, sizeof(float), cudaMemcpyDeviceToHost);
         //residual = cpu_residual(param.u, param.uhelp, np, np);
