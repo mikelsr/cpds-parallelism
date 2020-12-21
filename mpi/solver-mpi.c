@@ -90,6 +90,7 @@ double relax_redblack(double *u, unsigned sizex, unsigned sizey)
 double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int nproc, int iter, MPI_Comm comm)
 {
     MPI_Status status;
+    MPI_Request request;
     double unew, diff, sum = 0.0;
     int nbx, bx, nby, by;
 
@@ -115,7 +116,7 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int npro
                     }
                 // if it's the last row of the process, send each block downward
                 if (nproc > 1 && ii == nbx - 1) {
-                    MPI_Send(&u[(sizex - 2) * sizey + jj * by], by, MPI_DOUBLE, 1, iter, comm);
+                    MPI_Isend(&u[(sizex - 2) * sizey + jj * by], by, MPI_DOUBLE, 1, iter, comm, &request);
                 }
             }
         }
@@ -167,7 +168,7 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int npro
                     }
                 // send block bellow
                 if (ii == nbx - 1) {
-                    MPI_Send(&u[(sizex - 2) * sizey + jj * by], by, MPI_DOUBLE, rank + 1, iter, comm);
+                    MPI_Isend(&u[(sizex - 2) * sizey + jj * by], by, MPI_DOUBLE, rank + 1, iter, comm, &request);
                 }
             }
         }
