@@ -115,7 +115,7 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int npro
                     }
                 // if it's the last row of the process, send each block downward
                 if (nproc > 1 && ii == nbx - 1) {
-                    MPI_Send(&u[(sizex - 2) * sizey + jj * bx], bx, MPI_DOUBLE, 1, iter, comm);
+                    MPI_Send(&u[(sizex - 2) * sizey + jj * by], by, MPI_DOUBLE, 1, iter, comm);
                 }
             }
         }
@@ -128,7 +128,7 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int npro
             for (int jj = 0; jj < nby; jj++) {
                 // wait block from above
                 if (ii == 0) {
-                    MPI_Recv(&u[jj * bx], bx, MPI_DOUBLE, rank - 1, iter, comm, &status);
+                    MPI_Recv(&u[jj * by], by, MPI_DOUBLE, rank - 1, iter, comm, &status);
                 }
                 for (int i = 1 + ii * bx; i <= min((ii + 1) * bx, sizex - 2); i++)
                     for (int j = 1 + jj * by; j <= min((jj + 1) * by, sizey - 2); j++)
@@ -152,7 +152,7 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int npro
             for (int jj = 0; jj < nby; jj++) {
                 // wait block from above
                 if (ii == 0) {
-                    MPI_Recv(&u[jj * bx], bx, MPI_DOUBLE, rank - 1, iter, comm, &status);
+                    MPI_Recv(&u[jj * by], by, MPI_DOUBLE, rank - 1, iter, comm, &status);
                 }
                 for (int i = 1 + ii * bx; i <= min((ii + 1) * bx, sizex - 2); i++)
                     for (int j = 1 + jj * by; j <= min((jj + 1) * by, sizey - 2); j++)
@@ -167,7 +167,7 @@ double relax_gauss(double *u, unsigned sizex, unsigned sizey, int rank, int npro
                     }
                 // send block bellow
                 if (ii == nbx - 1) {
-                    MPI_Send(&u[(sizex - 2) * sizey + jj * bx], bx, MPI_DOUBLE, rank + 1, iter, comm);
+                    MPI_Send(&u[(sizex - 2) * sizey + jj * by], by, MPI_DOUBLE, rank + 1, iter, comm);
                 }
             }
         }
